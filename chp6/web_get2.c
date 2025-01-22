@@ -15,7 +15,7 @@ void parse_url(char *url, char **hostname, char **port, char **path){
     if (p){
         // point protocol to beginning of the url
         protocol = url;
-        // setting the character pointer to null
+        // null terminating after the protocol
         *p = 0;
         // pointing to one after :// 
         p += 3;
@@ -34,7 +34,7 @@ void parse_url(char *url, char **hostname, char **port, char **path){
         // setting the port to '80', except a port number has been specified as checked in the subsequent if statement
         *port = "80";
         if (*p == ':'){
-            // replace colon with null termination then point to the next character
+            // replace colon with null termination (to help split the url) then point to the next character
             *p++ = 0;
             // return the found port's address to port
             *port = p;
@@ -46,13 +46,14 @@ void parse_url(char *url, char **hostname, char **port, char **path){
         if (*p == '/'){
             *path = p + 1;
         }
+        // null terminating to split the url at the point of the path
         *p = 0;
         while (*p && *p != '#') ++p;
         if (*p == '#') *p = 0;
     }
-    printf("hostname: %s\n", hostname);
-    printf("port: %s\n", port);
-    printf("path :%s\n", path);
+    printf("hostname: %s\n", *hostname);
+    printf("port: %s\n", *port);
+    printf("path :%s\n", *path);
 }
 
 // function to send the http request to server
@@ -86,4 +87,48 @@ SOCKET connect_to_host(char *hostname, char *port){
     char service_buffer[100];
     getnameinfo(peer_address->ai_addr, peer_address->ai_addrlen, address_buffer, sizeof(address_buffer), service_buffer, sizeof(service_buffer), NI_NUMERICHOST);
     printf("%s %s\n", address_buffer, service_buffer);
+
+    printf("Creating socket...\n");
+    SOCKET server;
+    server = socket(peer_address->ai_family, peer_address->ai_socktype, peer_address->ai_protocol);
+    if (!ISVALIDSOCKET(server)){
+        fprintf(stderr, "socket() failed. (%d)", GETSOCKETERRNO());
+        exit(1);
+    }
+    print("Connecting...\n");
+    if (connect(server, peer_address->ai_addr, peer_address->ai_addrlen)){
+        fprintf(stderr, "connect() fialed. (%d)", GETSOCKETERRNO());
+        exit(1);
+    }
+    freeaddrinfo(peer_address);
+    printf("Connected.\n\n");
+    return server;
+}
+
+int main (int argc, char *argv[]){
+
+#if defined(_WIN32)
+    WSADATA d;
+    if (WSAStartup(MAKEWORD(2, 2), &d)){
+        fprintf(stderr, "Failed to initalise.\n");
+        return 1;
+    }
+#endif
+
+    if (argc < 2){
+        fprintf(stderr, "usage: web_get url\n");
+        return 1;
+    }
+    char *url = argv[1];
+
+    // allocating memory for the following data
+    char *hostname, *port, *path;
+    // parsing the url using helper function
+    parse_url(url, &hostname, &port, &path);
+
+    // establishing the connection to the target server (helper func)
+    SOCKET server = connect_to_host(hostname, port);
+    // sending the http request (helper func)
+    send_request(server, hostname, port, path);
+
 }
