@@ -131,4 +131,35 @@ int main (int argc, char *argv[]){
     // sending the http request (helper func)
     send_request(server, hostname, port, path);
 
+    // starting a clock to be able to track runtimes 
+    const clock_t start_time = clock();
+
+#define RESPONSE_SIZE 8192
+    // to store the http response, max size 8192
+    char response[RESPONSE_SIZE+1];
+    // pointer to keep track of how much we have written into response, q is an additonal pointer used further on
+    char *p = response, *q;
+    // to keep track of the end of the response
+    char *end = response + RESPONSE_SIZE;
+    // to keep track of the http response body
+    char *body = 0;
+    
+    // to list the method types in http
+    enum {length, chunked, connection};
+    // to store actual method used
+    int encoding = 0;
+    // record how many bytes still needed to finish the body
+    int remaining = 0;
+
+    while(1){
+        if ((clock() - start_time) / CLOCKS_PER_SEC > TIMEOUT){
+            fprintf(stderr, "timeout after %.2f seconds\n", TIMEOUT);
+            return 1;
+        }
+        if (p == end){
+            fprintf(stderr, "we have reached the end of the response (buffer).\n");
+            return 1;
+        }
+    }
+
 }
